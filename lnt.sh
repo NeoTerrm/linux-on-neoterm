@@ -1,6 +1,6 @@
 #!/data/data/io.neoterm/files/usr/bin/bash
 
-# Copyright (C) 2015  Kiva
+# Copyright (C) 2017  Kiva
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-#You should have received a copy of the GNU General Public License
+# You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ###########################
@@ -34,6 +34,7 @@ noclear=false
 
 # 挂载点
 base_dir="$HOME/.linux-on-neoterm"
+config_last_lunch="$base_dir/last_lunch"
 mnt="$base_dir/default"
 
 # 额外挂载的分区或目录
@@ -41,6 +42,17 @@ declare -A binds
 
 # 启动的脚本
 boot="/boot/krub.d/krub"
+
+function last_lunch_set() {
+  echo "${1:-default}" > "$config_last_lunch"
+}
+
+function last_lunch_get() {
+  if [[ ! -f "$config_last_lunch" ]]; then
+      echo "default"
+  fi
+  cat "$config_last_lunch"
+}
 
 function init_self() {
   :
@@ -53,13 +65,13 @@ function klinux_bind() {
 
 # 卸载
 function klinux_umount() {
-  info "卸载文件系统"
+  info "Unmounting file systems"
   info.ok
 }
 
 # 挂载
 function klinux_mount() {
-  info "挂载 Linux 分区"
+  info "Mounting Linux file systems"
   klinux_bind "/dev" "/dev"
   klinux_bind "/proc" "/proc"
   klinux_bind "/sys" "/sys"
@@ -72,7 +84,7 @@ function klinux_chroot() {
   local mboot="$boot"
   
   if [[ ! -f "$mmnt/$mboot" ]];then
-    info "安装目标加载器"
+    info "Installing bootstrap files"
     klinux_install_loader "$mmnt"
     info.ok
   fi
@@ -123,7 +135,7 @@ function klinux_install_loader() {
 # 默认启动
 function klinux_main() {
   clear
-  echo " * 启动 Linux ARM"
+  echo " * Booting Linux"
   echo
   klinux_mount
   klinux_chroot "$@"
@@ -172,7 +184,7 @@ function info.fail() {
 }
 
 function error_exit() {
-  echo -n " * [Loader] 错误: "
+  echo -n " * [Loader] Error: "
   rprint "$@"
   echo
   exit 1
@@ -230,28 +242,23 @@ while [[ "$1"x != ""x ]];do
       shift
       noclear=true ;;
       
-    "new" )
+    "new" | "--new" )
       shift
       klinux_create "$@"
       exit $? ;;
       
-    "lunch" )
+    "lunch" | "--lunch" )
       exit $? ;;
       
-    "install-loader" )
-      shift
-      klinux_install_loader "$@"
-      exit $? ;;
-      
-    "help" )
+    "help" | "--help" )
       klinux_help 
       exit 0 ;;
       
-    "version" )
+    "version" | "--version" )
       klinux_version
       exit 0 ;;
      
-    "license" )
+    "license" | "--license" )
       klinux_license
       exit 0 ;;
             
@@ -260,12 +267,11 @@ while [[ "$1"x != ""x ]];do
       break ;;
       
     * )
-      error_exit "不支持的命令: $1"
+      error_exit "Unrecognized command: $1"
       exit ;;
   esac
 done
 
-# 如果while中没处理到任何参数，默认运行
 klinux_main "$@"
 
 exit $?
@@ -276,7 +282,7 @@ exit $?
 #!/bin/bash
 
 error_exit() {
-    echo " * [Loader] 错误: $@"
+    echo " * [Loader] Error: $@"
     exit 1
 }
 
@@ -290,8 +296,6 @@ export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/sbin:/usr/local/bin:/usr/ga
 export TERM=xterm-256color
 export HOME=/root
 export USER=root
-
-already_init=false
 
 INIT=/bin/bash
 INIT_ARG="--login -i -"
@@ -333,7 +337,7 @@ while [[ ! -z "$1" ]];do
         user=* )
             pre="${1##*user=}"
             if ! grep "$pre" /etc/shadow &>/dev/null;then
-              error_echo "无法找到指定用户: $pre"
+              error_echo "User '$pre' not found"
             fi
             export USER="$pre"
             if [[ "$USER" == "root" ]]; then
@@ -344,7 +348,7 @@ while [[ ! -z "$1" ]];do
             shift 1 ;;
             
         * )
-            error_exit "$1: 暂不支持的启动参数"
+            error_exit "$1: Unrecognized boot argument"
             exit 1 ;;
         
     esac
@@ -352,13 +356,13 @@ while [[ ! -z "$1" ]];do
 done
 
 if ! test -f $myconfd/DONOTDELETE.txt;  then
-    echo " * 正在为第一次启动进行配置..."
+    echo " * Configuring system..."
     echo "nameserver 8.8.8.8" > /etc/resolv.conf || {
-        error_exit "无法写入 resolv.conf 文件!"
+        error_exit "Failed to generate /etc/resolv.conf"
     }
     echo "nameserver 8.8.4.4" >> /etc/resolv.conf
     echo "127.0.0.1 localhost" > /etc/hosts || {
-        error_exit "无法写入 hosts 文件!";
+        error_exit "Failed to generate /etc/hosts";
     }
     chmod a+rw  /dev/null &>/dev/null
     chmod a+rw  /dev/ptmx &>/dev/null
@@ -387,7 +391,7 @@ fi
 
 rm /tmp/.X* &>/dev/null
 rm /tmp/.X11-unix/X* &>/dev/null
-rm /root/.vnc/localhost* &>/dev/null
+rm $HOME/.vnc/localhost* &>/dev/null
 rm /var/run/dbus/pid &>/dev/null
 rm /var/run/reboot-required* &>/dev/null
 
@@ -399,7 +403,7 @@ cd "$HOME"
 $INIT $INIT_ARG
 
 clear
-echo " * 关闭 Linux ARM"
+echo " * Shutting down Linux"
 echo
 exit 0
 # end("target_loader");
@@ -416,45 +420,40 @@ exit 0
    |_|\_\______|_|_| |_|\__,_/_/\_\
 
 
-   Hello Klinux!
-   感谢您使用 Klinux 作为加载器
+   Linux on NeoTerm!
    ---------------------------------------
-   祝您愉快使用！
    
-   发送 Bug: Kiva <kiva515@foxmail.com>
+   Bug report: Kiva <kiva515@foxmail.com>
 
 
 
 # end("welcome_text");
 
 # section("version_text");
-Klinux - 1.0(20160217)
+Linux on NeoTerm - 0.1(20171104)
 # end("version_text");
 
 # section("help_text");
-Klinux: A fast and smart linux-arm loader
-usage: linux [options] [command]
+lnt: Linux manager for NeoTerm
+usage: lnt [options] [command]
 
 options:
-  --no-clear       不清屏，保留原始输出
+  --no-clear       do not clear the screen
   
 command:
-  new              添加一个新的系统
-  remove           清除一个系统，保留配置
-  purge            彻底清除一个系统，无任何保留
-  show             打印已安装的系统
-  show <name>      显示 <name> 系统的信息
-  lunch            启动上一次启动的系统
-  lunch <name>     启动 <name>
-  set-lunch <name> 设置默认启动的系统
+  new              setup a system from scratch
+  remove           remove an existing system
+  show             show installed system
+  show <name>      show system information
+  lunch            lunch previous used system
+  lunch <name>     lunch <name>
+  set-lunch <name> set lunch system for next time
   
-  install-loader   安装启动文件
+  help             show help text
+  license          show license text
   
-  help             打印帮助信息
-  license          打印开源协议
-  
-如果没有指定任何一个 command
-则默认执行参数 lunch 的操作
+If there is no command specified,
+the default action is lunch.
 
 # end("help_text");
 
