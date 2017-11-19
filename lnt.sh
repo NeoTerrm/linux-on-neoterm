@@ -34,7 +34,7 @@ noclear=false
 
 # 挂载点
 base_dir="$HOME/.linux-on-neoterm"
-config_last_lunch="$base_dir/last_lunch"
+config_last_launch="$base_dir/last_launch"
 mnt="$base_dir/default"
 
 # 额外挂载的分区或目录
@@ -43,15 +43,26 @@ declare -A binds
 # 启动的脚本
 boot="/boot/krub.d/krub"
 
-function last_lunch_set() {
-  echo "${1:-default}" > "$config_last_lunch"
+function last_launch_set() {
+  local new="$1"
+  if [[ "$new"x == ""x ]]; then
+      return 0
+  fi
+  
+  info "Changing default launch system to $new"
+  if [[ ! -d "$base_dir/$new" ]]; then
+      info.fail
+      error_exit "System '$new' not found."
+  fi
+  echo "$new" > "$config_last_launch"
+  info.ok
 }
 
-function last_lunch_get() {
-  if [[ ! -f "$config_last_lunch" ]]; then
+function last_launch_get() {
+  if [[ ! -f "$config_last_launch" ]]; then
       echo "default"
   fi
-  cat "$config_last_lunch"
+  cat "$config_last_launch"
 }
 
 function init_self() {
@@ -247,7 +258,12 @@ while [[ "$1"x != ""x ]];do
       klinux_create "$@"
       exit $? ;;
       
-    "lunch" | "--lunch" )
+    "launch" | "--launch" )
+      shift ;;
+    
+    "set-launch" | "--set-launch" )
+      shift
+      last_launch_set "$1"
       exit $? ;;
       
     "help" | "--help" )
@@ -438,22 +454,22 @@ lnt: Linux manager for NeoTerm
 usage: lnt [options] [command]
 
 options:
-  --no-clear       do not clear the screen
+  --no-clear        do not clear the screen
   
 command:
-  new              setup a system from scratch
-  remove           remove an existing system
-  show             show installed system
-  show <name>      show system information
-  lunch            lunch previous used system
-  lunch <name>     lunch <name>
-  set-lunch <name> set lunch system for next time
+  new               setup a system from scratch
+  remove            remove an existing system
+  show              show installed system
+  show <name>       show system information
+  launch            launch previous used system
+  launch <name>     launch <name>
+  set-launch <name> set launch system for next time
   
-  help             show help text
-  license          show license text
+  help              show help text
+  license           show license text
   
 If there is no command specified,
-the default action is lunch.
+the default action is launch.
 
 # end("help_text");
 
